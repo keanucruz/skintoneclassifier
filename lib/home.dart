@@ -58,7 +58,7 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
     });
 
     final request = http.MultipartRequest(
-        'POST', Uri.parse('http://192.168.18.211:3009/process_image'));
+        'POST', Uri.parse('http://192.168.0.16:3009/process_image'));
     request.files.add(await http.MultipartFile.fromPath('image', _image!.path));
 
     try {
