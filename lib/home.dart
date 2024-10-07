@@ -30,6 +30,7 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
 
   double _imageX = 0;
   double _imageY = 0;
+  double _imageScale = 1.0; // Added scale variable
   GlobalKey _imageKey = GlobalKey();
 
   Future<void> _pickImageFromCamera() async {
@@ -39,6 +40,7 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
         _image = File(pickedFile.path);
         _imageX = 0;
         _imageY = 0;
+        _imageScale = 1.0;
       } else {
         print('No image selected.');
       }
@@ -52,6 +54,7 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
         _image = File(pickedFile.path);
         _imageX = 0;
         _imageY = 0;
+        _imageScale = 1.0;
       } else {
         print('No image selected.');
       }
@@ -125,8 +128,8 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
     });
 
     try {
-      final response = await http.get(Uri.parse(
-          'http://localhost:3009/get_products')); // Replace with your actual API endpoint
+      final response =
+          await http.get(Uri.parse('http://localhost:3009/get_products'));
       if (response.statusCode == 200) {
         setState(() {
           _products = json.decode(response.body);
@@ -157,7 +160,6 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
           await image.toByteData(format: ui.ImageByteFormat.png);
       Uint8List pngBytes = byteData!.buffer.asUint8List();
 
-      // Get directory to save cropped image
       final directory = await getApplicationDocumentsDirectory();
       File imgFile = File('${directory.path}/cropped_image.png');
       await imgFile.writeAsBytes(pngBytes);
@@ -180,6 +182,7 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
       _products = null;
       _imageX = 0;
       _imageY = 0;
+      _imageScale = 1.0; // Reset the scale
     });
   }
 
@@ -219,9 +222,12 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
                       child: _image != null
                           ? Transform.translate(
                               offset: Offset(_imageX, _imageY),
-                              child: Image.file(
-                                _image!,
-                                fit: BoxFit.cover,
+                              child: Transform.scale(
+                                scale: _imageScale,
+                                child: Image.file(
+                                  _image!,
+                                  fit: BoxFit.cover,
+                                ),
                               ),
                             )
                           : Center(
@@ -236,6 +242,19 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
                 ),
               ),
               SizedBox(height: 20),
+              if (_image != null)
+                Slider(
+                  value: _imageScale,
+                  min: 1.0,
+                  max: 3.0,
+                  divisions: 20,
+                  label: _imageScale.toStringAsFixed(1),
+                  onChanged: (value) {
+                    setState(() {
+                      _imageScale = value;
+                    });
+                  },
+                ),
               if (_image == null || _skinTone == null) ...[
                 ElevatedButton.icon(
                   onPressed: _pickImageFromCamera,
@@ -290,9 +309,84 @@ class _SkinToneDetectorState extends State<SkinToneDetector> {
                         fontSize: 18, color: Colors.red, fontFamily: 'FFMark')),
                 SizedBox(height: 10),
               ],
+              SizedBox(height: 20),
+              if (_products != null && !_isFetchingProducts) ...[
+                Text('Recommended Products:',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'FFMark')),
+                SizedBox(height: 10),
+                ..._products!.map((product) {
+                  return Card(
+                    child: ListTile(
+                      title: Text(product['name']),
+                      subtitle: Text(product['description']),
+                      trailing: Text('\$${product['price']}'),
+                    ),
+                  );
+                }).toList(),
+              ],
+              if (_colorPalette != null && _colorPalette!.isNotEmpty) ...[
+                Text('Suggested Color Palette:',
+                    style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'FFMark')),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: _colorPalette!.entries.map((entry) {
+                    return Expanded(
+                      child: Container(
+                        height: 50,
+                        margin: EdgeInsets.symmetric(horizontal: 4.0),
+                        decoration: BoxDecoration(
+                          color: Color(
+                              int.parse(entry.key.substring(1), radix: 16) +
+                                  0xFF000000),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Center(
+                          child: Text(
+                            entry.value,
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+              if (_dominantColors != null) ...[
+                Text('Dominant Colors:'),
+                SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: _dominantColors!.map((color) {
+                    return Container(
+                      width: 50,
+                      height: 50,
+                      margin: EdgeInsets.symmetric(horizontal: 5),
+                      decoration: BoxDecoration(
+                        color: Color(int.parse(color.substring(1), radix: 16) +
+                            0xFF000000),
+                        shape: BoxShape.circle,
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
             ],
           ),
         ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _reset,
+        tooltip: 'Reset',
+        backgroundColor: Colors.white70,
+        foregroundColor: Colors.black,
+        child: Icon(Icons.refresh),
       ),
     );
   }
